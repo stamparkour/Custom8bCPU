@@ -16,6 +16,21 @@ std_mem:
 
 ;void memcpy(char* s : std_mem+0, char* d : std_mem+2, uint8_t length : x)
 memcpy:
+	.s = std_mem + 0
+	.d = std_mem + 2
+	.len = std_mem + 4
+
+	stx [.len]
+	.loop:
+		ldyx [.s]
+		lda [yx]
+		ldyx [.d]
+		sta [yx]
+		ldx [.len]
+		dec X
+		stx [.len]
+		bzc .loop
+	ret
 	
 
 ;void print(char* cstring : yx)

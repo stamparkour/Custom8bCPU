@@ -2,6 +2,12 @@
 #include "std.asm"
 
 entry:
+	ldyx message2
+	styx std_mem+0
+	ldyx vmsg
+	styx std_mem+2
+	ldx 2
+	call memcpy
 	sti
 	lda 3
 	sta [var]
@@ -9,7 +15,7 @@ entry:
 	call print
 	jmp $
 interrupt:
-	ldyx message2
+	ldyx vmsg
 	call print
 	
 	brk
@@ -17,7 +23,7 @@ interrupt:
 	inc a
 	sta [var] 
 	add "0"
-	sta [message2]
+	sta [vmsg]
 	iret
 
 message:

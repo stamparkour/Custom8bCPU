@@ -164,9 +164,7 @@ display = 0xFEE0
 	call {addr : u16} => 0x5C @ le(addr)
 	call x~ {addr : u16} => 0x9C @ le(addr)
 	call yx => 0xDC
-	int {addr : u16} => 0x5D @ le(addr)
-	int x~ {addr : u16} => 0x9D @ le(addr)
-	int yx => 0xDC
+	int => 0x1D
 	stc => 0x1E
 	stz => 0x5E
 	stbcd => 0x9E
@@ -177,6 +175,9 @@ display = 0xFEE0
 	cli => 0xDF
 
 	ldyx {const : i16} => 0x0A @ le(const[15:8]) @ 0x09 @ le(const[7:0])
-	ldyx [{addr : u16}] => 0x4A @ le(addr+1) @ 0x49 @ le(addr)
-	ldyx [x~ {addr : u16}] => 0x8A @ le(addr + 1) @ 0x89 @ le(addr)
+	ldyx [{addr : u16}] => 0x4A @ le((addr+1)`16) @ 0x49 @ le(addr`16)
+	ldyx [x~ {addr : u16}] => 0x8A @ le((addr + 1)`16) @ 0x89 @ le(addr`16)
+	styx {const : i16} => 0x0D @ le(const[15:8]) @ 0x0C @ le(const[7:0])
+	styx [{addr : u16}] => 0x4D @ le((addr+1)`16) @ 0x4C @ le(addr`16)
+	styx [x~ {addr : u16}] => 0x8D @ le((addr + 1)`16) @ 0x8C @ le(addr`16)
 }
