@@ -45,7 +45,7 @@
    4b:0 |   4b |             ; .b1:
    4b:0 |   4b | 41 21 00    ; jmp .loop
    4e:0 |   4e |             ; entry:
-   4e:0 |   4e | 0a 00 09 94 ; ldyx message2
+   4e:0 |   4e | 0a 00 09 9b ; ldyx message2
    52:0 |   52 | 0d 80 0c 00 ; styx std_mem+0
    56:0 |   56 | 0a 80 09 10 ; ldyx vmsg
    5a:0 |   5a | 0d 80 0c 02 ; styx std_mem+2
@@ -54,7 +54,7 @@
    63:0 |   63 | de          ; sti
    64:0 |   64 | 08 03       ; lda 3
    66:0 |   66 | 4b 12 80    ; sta [var]
-   69:0 |   69 | 0a 00 09 88 ; ldyx message
+   69:0 |   69 | 0a 00 09 8f ; ldyx message
    6d:0 |   6d | 5c 1c 00    ; call print
    70:0 |   70 | 41 70 00    ; jmp $
    73:0 |   73 |             ; interrupt:
@@ -63,16 +63,20 @@
    7a:0 |   7a | 40          ; brk
    7b:0 |   7b | 48 12 80    ; lda [var]
    7e:0 |   7e | 0e          ; inc a
-   7f:0 |   7f | 4b 12 80    ; sta [var]
-   82:0 |   82 | 10 30       ; add "0"
-   84:0 |   84 | 4b 10 80    ; sta [vmsg]
-   87:0 |   87 | da          ; iret
-   88:0 |   88 |             ; message:
-   88:0 |   88 | 63 68 65 65 73 65 3f 0a 59 7c 4e ; "cheese?\nY|N"
-   93:0 |   93 | 00          ; 0x00
-   94:0 |   94 |             ; message2:
-   94:0 |   94 | 30          ; "0"
-   95:0 |   95 | 00          ; 0x00
+   7f:0 |   7f | 19 0a       ; cmp 10
+   81:0 |   81 | 43 86 00    ; bne .b1
+   84:0 |   84 | 08 00       ; lda 0
+   86:0 |   86 |             ; .b1:
+   86:0 |   86 | 4b 12 80    ; sta [var]
+   89:0 |   89 | 10 30       ; add "0"
+   8b:0 |   8b | 4b 10 80    ; sta [vmsg]
+   8e:0 |   8e | da          ; iret
+   8f:0 |   8f |             ; message:
+   8f:0 |   8f | 63 68 65 65 73 65 3f 0a 59 7c 4e ; "cheese?\nY|N"
+   9a:0 |   9a | 00          ; 0x00
+   9b:0 |   9b |             ; message2:
+   9b:0 |   9b | 30          ; "0"
+   9c:0 |   9c | 00          ; 0x00
  7ff0:0 | 7ff0 | 00 00       ; le(0x0000`16)
  7ff2:0 | 7ff2 | 00 00       ; le(0x0000`16)
  7ff4:0 | 7ff4 | 00 00       ; le(0x0000`16)

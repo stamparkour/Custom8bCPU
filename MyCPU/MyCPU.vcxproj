@@ -135,6 +135,9 @@
     <ClInclude Include="myCPU.h" />
     <ClInclude Include="code.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="customasm_win64\sp801\basic.bin" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

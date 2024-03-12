@@ -21,6 +21,10 @@ interrupt:
 	brk
 	lda [var]
 	inc a
+	cmp 10
+	bne .b1
+		lda 0
+	.b1:
 	sta [var] 
 	add "0"
 	sta [vmsg]
