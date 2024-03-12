@@ -11,38 +11,75 @@ byte* rom = 0;
 byte* ram = 0;
 int musicData = 0;
 
+byte ioMode = 0;
+byte ioIndex = 0;
+
+bool key_was_pressed(void)
+{
+	return (WaitForSingleObject(GetStdHandle(STD_INPUT_HANDLE), 0) == WAIT_OBJECT_0);
+}
+
+void gotoxy(int x, int y)
+{
+	COORD coord;
+	coord.X = x;
+	coord.Y = y;
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+}
+
+COORD getxy()
+{
+	CONSOLE_SCREEN_BUFFER_INFO cbsi;
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cbsi))
+	{
+		return cbsi.dwCursorPosition;
+	}
+	else
+	{
+		// The function failed. Call GetLastError() for details.
+		COORD invalid = { 0, 0 };
+		return invalid;
+	}
+}
+
+COORD _BACK{};
+void pushxy(int x, int y) {
+	_BACK = getxy();
+	gotoxy(x, y);
+}
+void popxy() {
+	gotoxy(_BACK.X, _BACK.Y);
+}
+
+void Display(int addr, int v) {
+	addr %= 32;
+	pushxy(addr % 16, addr / 16);
+	char arr[2];
+	arr[0] = v;
+	arr[1] = 0;
+	printf(arr);
+	popxy();
+}
+
+char keyDown;
 void memoryManager(byte& bus, int addr, bool rw) {
-	if (addr < 2048) {
+	if (addr < 0x7FFF) {
 		if (rw);
 		else {
 			bus = rom[addr];
 		}
 	}
-	else if(addr < 4000) {
+	else if (addr >= 0xFEE0 && addr < 0xFF00) {
 		if (rw) {
-			ram[addr - 2048] = bus;
+			Display(addr - 0xFEE0, bus);
+		}
+	}
+	else if(addr < 0x10000) {
+		if (rw) {
+			ram[addr - 0x8000] = bus;
 		}
 		else {
-			bus = ram[addr - 2048];
-		}
-	}
-	else if (addr == 4095) {
-		if (rw) {
-			char arr[2];
-			arr[0] = bus;
-			arr[1] = 0;
-			printf(arr);
-		}
-	}
-	else if (addr == 4094) {
-		if (rw) {
-			int v = bus;
-			printf("%d\n", v);
-		}
-	}
-	else if (addr == 4093) {
-		if (rw) {
-			musicData = bus;
+			bus = ram[addr - 0x8000];
 		}
 	}
 }
@@ -57,11 +94,57 @@ auto since(std::chrono::time_point<clock_t, duration_t> const& start)
 	return std::chrono::duration_cast<result_t>(clock_t::now() - start);
 }
 
+const char* OPCODE_NAME[] = {
+	"NOP",
+	"JMP",
+	"BZS",//e
+	"BZC",//ne
+	"BCS",//l
+	"BCC",//ge
+	"BG",
+	"BLE",
+	"LDA",
+	"LDX",
+	"LDY",
+	"STA",
+	"STX",
+	"STY",
+	"INC",
+	"DEC",
+	"ADD",
+	"SUB",
+	"ADDC",
+	"SUBC",
+	"AND",
+	"OR",
+	"XOR",
+	"SHL",
+	"SHR",
+	"CMP",
+	"PSH",
+	"POP",
+	"CAL",
+	"RET",
+	"SF",
+	"CF",
+};
+const char* OPCODE_MODE[] = {
+	"c",
+	"a",
+	"x",
+	"yx"
+};
+void getOpName(byte code, char* b) {
+	sprintf(b, "%s%s", OPCODE_NAME[code&0x1F], OPCODE_MODE[code >> 6]);
+}
+
 int frame = 0;
-void printCPU(CPU& prog, Reg12& addr, byte bus, bool rw) {
+void printCPU(CPU& prog, bool rw) {
 	frame++;
-	printf("[%i]%.4x : %.2x %c\n", frame, (int)addr, (int)bus, rw ? 'W' : 'R');
-	printf("[%i]code: %.2x, IP: %.4x, A: %.2x, X: %.2x\n", frame, (int)prog.code, (int)prog.IP, (int)prog.A, (int)prog.X);
+	char b[16];
+	getOpName(prog.code, b);
+	printf("[%i]%.4x : %.2x %c\n", frame, (int)prog.addr, (int)prog.io, rw ? 'W' : 'R');
+	printf(" - code : %.2x - %s, IP: %.4x, A: %.2x, X: %.2x\n", (int)prog.code, b, (int)prog.IP, (int)prog.A, (int)prog.X);
 }
 
 double timerTickLength = 0;
@@ -97,8 +180,6 @@ void RunCPU(byte* _rom, byte* _ram) {
 
 	rom = _rom;
 	ram = _ram;
-	byte bus = 0;
-	Reg12 addr = 0;
 	bool rw = false;
 	CPU prog = {};
 	int i = 0;
@@ -108,14 +189,14 @@ void RunCPU(byte* _rom, byte* _ram) {
 	int prev = since(start).count();
 	double prevTime = 0;
 	while (true) {
-		memoryManager(bus, addr, rw);
-		rw = prog.interp(addr, bus);
-		//printCPU(prog, addr, bus, rw);
+		memoryManager((uint8_t&)prog.io, prog.addr, rw);
+		//printCPU(prog, rw);
+		prog.interp(rw, GetKeyState(VK_SPACE) & 0x8000);
 
 		double wait;
 		do {
 			double time = GetTime();
-			wait = 1.0 / 1000 - (time - prevTime);
+			wait = 1.0 / 1024 - (time - prevTime);
 		} while (wait > 0);
 		prevTime = GetTime();
 	}

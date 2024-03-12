@@ -1,586 +1,737 @@
 #include "myCPU.h"
+#include <cstdint>
 
-bool CPU::interp(Reg12& addr, byte& bus) {
-	bool rw = false;
-	if (code == OP_NOP) {
-		addr = IP = IP + 1;
-		code = bus;
-		index = 255;
+int BCDfix(uint8_t v) {
+	int a = v & 0xF;
+	int b = v >> 4;
+	int c = 0;
+	if (a > 9) {
+		a -= 10;
+		b++;
+	}
+	if (b > 9) {
+		b -= 10;
+		c++;
+	}
+	return a | (b << 4) | (c << 8);
+}
+
+int fromBCD(uint8_t v) {
+	int a = v & 0xF;
+	int b = (v >> 4) & 0xF;
+	return a + b * 10;
+}
+int toBCD(uint8_t v) {
+	int a = v % 10;
+	int b = (v / 10) % 10;
+	int c = (v / 100) % 10;
+	return a | (b<<4) | (c<<8);
+}
+
+bool AddrMode(CPU& prog) {
+	switch (prog.code >> 6) {
+	case 0: {
+		prog.IP = prog.IP + 1;
+		return true;
+	} case 1: switch (prog.index & 0x3) {
+		case 0: {
+			prog.buffer = prog.io;
+			prog.addr = prog.IP = prog.IP + 1;
+		} return false;
+		case 1: {
+			prog.addr = prog.buffer | (prog.io << 8);
+			prog.IP = prog.IP + 1;
+		} return true;
+	} case 2: switch (prog.index & 0x3) {
+		case 0: {
+			prog.buffer = prog.io;
+			prog.addr = prog.IP = prog.IP + 1;
+		} return false;
+		case 1: {
+			prog.addr = prog.buffer | (prog.io << 8) + prog.X;
+			prog.IP = prog.IP + 1;
+		} return true;
+	} case 3: switch (prog.index & 0x3) {
+		case 0: {
+			prog.addr = prog.X | (prog.Y << 8);
+		} return true;
+	}
+	}
+}
+
+void JMP(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			prog.IP = prog.addr;
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BZS(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (prog.zero) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BZC(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (!prog.zero) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BCS(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (prog.carry) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BCC(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (!prog.carry) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BG(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (!prog.carry && !prog.zero) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+void BLE(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			if (prog.carry || prog.zero) {
+				prog.IP = prog.addr;
+			}
+			else {
+				prog.addr = prog.IP;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+
+void LDA(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.A = prog.io;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void LDX(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.X = prog.io;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void LDY(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.Y = prog.io;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+
+void STA(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			RW = true;
+			prog.io = prog.A;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void STX(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			RW = true;
+			prog.io = prog.X;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void STY(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			RW = true;
+			prog.io = prog.Y;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+
+void INC(CPU& prog, bool& RW)  {
+	if (prog.code >> 6 == 3) {
+		prog.A = prog.X;
+	}
+	else {
+		int v = 0;
+		switch (prog.code >> 6) {
+		case 0:
+			v = prog.A + 1;
+			break;
+		case 1:
+			v = prog.X + 1;
+			break;
+		case 2:
+			v = prog.Y + 1;
+			break;
+		}
+		if (prog.bcd) {
+			v = BCDfix(v);
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		switch (prog.code >> 6) {
+		case 0:
+			prog.A = v;
+			break;
+		case 1:
+			prog.X = v;
+			break;
+		case 2:
+			prog.Y = v;
+			break;
+		}
+
+	}
+	prog.code = OP_NOP;
+	
+}
+void DEC(CPU& prog, bool& RW) {
+	if (prog.code >> 6 == 3) {
+		prog.A = prog.Y;
+	}
+	else {
+		int v = 0;
+		switch (prog.code >> 6) {
+		case 0:
+			v = prog.A - 1;
+			break;
+		case 1:
+			v = prog.X - 1;
+			break;
+		case 2:
+			v = prog.Y - 1;
+			break;
+		}
+		if (prog.bcd) {
+			v = BCDfix(v);
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		switch (prog.code >> 6) {
+		case 0:
+			prog.A = v;
+			break;
+		case 1:
+			prog.X = v;
+			break;
+		case 2:
+			prog.Y = v;
+			break;
+		}
 	}
 
-	switch (code << 4 | index) {
-	case((OP_JMP << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_JMP << 4) | 1): {
-		addr = IP = (bus << 8) | buffer;
-		code = OP_NOP;
-	} break;
-	case((OP_BCS << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BCS << 4) | 1): {
-		if (carry) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_BZS << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BZS << 4) | 1): {
-		if (zero) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_BCC << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BCC << 4) | 1): {
-		if (!carry) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_BZC << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BZC << 4) | 1): {
-		if (!zero) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_BG << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BG << 4) | 1): {
-		if (!zero && !carry) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_BLE << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_BLE << 4) | 1): {
-		if (zero || carry) addr = IP = (bus << 8) | buffer;
-		else addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_STX_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_STX_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_STX_c << 4) | 2): {
-		X = bus;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_STA_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_STA_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_STA_c << 4) | 2): {
-		A = bus;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_LDX_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_LDX_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-		rw = true;
-		bus = X;
-	} break;
-	case((OP_LDX_c << 4) | 2): {
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_LDA_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_LDA_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-		rw = true;
-		bus = A;
-	} break;
-	case((OP_LDA_c << 4) | 2): {
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_STX_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_STX_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_STX_x << 4) | 2): {
-		X = bus;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_STA_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_STA_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_STA_x << 4) | 2): {
-		A = bus;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_LDX_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_LDX_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-		rw = true;
-		bus = X;
-	} break;
-	case((OP_LDX_x << 4) | 2): {
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_LDA_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_LDA_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-		rw = true;
-		bus = A;
-	} break;
-	case((OP_LDA_x << 4) | 2): {
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_INCX << 4) | 2): {
-		X = X + 1;
-		addr = IP = IP + 1;
-		code = bus;
-		index = 255;
-	} break;
-	case((OP_INCA << 4) | 2): {
-		A = A + 1;
-		addr = IP = IP + 1;
-		code = bus;
-		index = 255;
-	} break;
-	case((OP_DECX << 4) | 2): {
-		X = X - 1;
-		addr = IP = IP + 1;
-		code = bus;
-		index = 255;
-	} break;
-	case((OP_DECA << 4) | 2): {
-		A = A - 1;
-		addr = IP = IP + 1;
-		code = bus;
-		index = 255;
-	} break;
-	case((OP_ADD_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_ADD_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_ADD_c << 4) | 2): {
-		int v = A + bus;
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SUB_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SUB_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_SUB_c << 4) | 2): {
-		int v = A - bus;
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_ADDc_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_ADDc_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_ADDc_c << 4) | 2): {
-		int v = A + bus + (carry ? 1 : 0);
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SUBc_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SUBc_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_SUBc_c << 4) | 2): {
-		int v = A - bus - (carry ? 1 : 0);
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_XOR_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_XOR_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_XOR_c << 4) | 2): {
-		int v = A ^ bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_AND_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_AND_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_AND_c << 4) | 2): {
-		int v = A & bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_OR_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_OR_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_OR_c << 4) | 2): {
-		int v = A | bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SHL_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SHL_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_SHL_c << 4) | 2): {
-		int v = A << bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SHR_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SHR_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_SHR_c << 4) | 2): {
-		int v = A >> bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_CMP_c << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_CMP_c << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_CMP_c << 4) | 2): {
-		int v = A - bus;
-		carry = v & 0x100;
-		zero = !v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
+	prog.code = OP_NOP;
+}
 
-	case((OP_ADD_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_ADD_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_ADD_x << 4) | 2): {
-		int v = A + bus;
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SUB_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SUB_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_SUB_x << 4) | 2): {
-		int v = A - bus;
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_ADDc_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_ADDc_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_ADDc_x << 4) | 2): {
-		int v = A + bus + (carry ? 1 : 0);
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SUBc_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SUBc_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_SUBc_x << 4) | 2): {
-		int v = A - bus - (carry ? 1 : 0);
-		carry = v & 0x100;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_XOR_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_XOR_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_XOR_x << 4) | 2): {
-		int v = A ^ bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_AND_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_AND_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_AND_x << 4) | 2): {
-		int v = A & bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_OR_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_OR_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_OR_x << 4) | 2): {
-		int v = A | bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SHL_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SHL_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_SHL_x << 4) | 2): {
-		int v = A << bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_SHR_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_SHR_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_SHR_x << 4) | 2): {
-		int v = A >> bus;
-		carry = false;
-		zero = !v;
-		A = v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_CMP_x << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_CMP_x << 4) | 1): {
-		addr = ((bus << 8) | buffer) + X;
-	} break;
-	case((OP_CMP_x << 4) | 2): {
-		int v = A - bus;
-		carry = v & 0x100;
-		zero = !v;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
-	case((OP_PSHA << 4) | 0): {
-		addr = SP | 0xFF00;
-		SP = SP - 1;
-		bus = A;
-		rw = true;
-	} break;
-	case((OP_PSHA << 4) | 1): {
-		addr = IP;
-		code = OP_NOP;
-	} break;
-	case((OP_PSHX << 4) | 0): {
-		addr = SP | 0xFF00;
-		SP = SP - 1;
-		bus = X;
-		rw = true;
-	} break;
-	case((OP_PSHX << 4) | 1): {
-		addr = IP;
-		code = OP_NOP;
-	} break;
-	case((OP_POPA << 4) | 0): {
-		SP = SP + 1;
-		addr = SP | 0xFF00;
-	} break;
-	case((OP_POPA << 4) | 1): {
-		A = bus;
-		addr = IP;
-		code = OP_NOP;
-	} break;
-	case((OP_POPX << 4) | 0): {
-		SP = SP + 1;
-		addr = SP | 0xFF00;
-	} break;
-	case((OP_POPX << 4) | 1): {
-		X = bus;
-		addr = IP;
-		code = OP_NOP;
-	} break;
-	case((OP_CAL << 4) | 0): {
-		addr = IP = IP + 1;
-		buffer = bus;
-		rw = true;
-	} break;
-	case((OP_CAL << 4) | 1): {
-		IP = (bus << 8) | buffer;
-		addr = SP | 0xFF00;
-		SP = SP - 1;
-		bus = IP >> 8;
-		rw = true;
-	} break;
-	case((OP_CAL << 4) | 2): {
-		addr = SP | 0xFF00;
-		SP = SP - 1;
-		bus = IP;
-		rw = true;
-	} break;
-	case((OP_CAL << 4) | 3): {
-		addr = IP;
-		code = OP_NOP;
-	} break;
-	case((OP_RET << 4) | 0): {
-		SP = SP + 1;
-		addr = SP | 0xFF00;
-	} break;
-	case((OP_RET << 4) | 1): {
-		SP = SP + 1;
-		addr = SP | 0xFF00;
-		buffer = bus;
-	} break;
-	case((OP_RET << 4) | 2): {
-		addr = IP = (bus << 8) | buffer;
-		code = OP_NOP;
-	} break;
-	case((OP_STSP << 4) | 0): {
-		buffer = bus;
-		addr = IP = IP + 1;
-	} break;
-	case((OP_STSP << 4) | 1): {
-		addr = (bus << 8) | buffer;
-	} break;
-	case((OP_STSP << 4) | 2): {
-		SP = bus;
-		addr = IP = IP + 1;
-		code = OP_NOP;
-	} break;
+void ADD(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v;
+		if (prog.bcd) {
+			v = toBCD(fromBCD(prog.A) + fromBCD(prog.io));
+		}
+		else {
+			v = prog.A + prog.io;
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void SUB(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v;
+		if (prog.bcd) {
+			v = toBCD(fromBCD(prog.A) + fromBCD(prog.io));
+		}
+		else {
+			v = prog.A + prog.io;
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void AND(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v = prog.A & prog.io;
+		prog.carry = false;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void OR(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v = prog.A | prog.io;
+		prog.carry = false;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void XOR(CPU& prog, bool& RW) {
+	if ((prog.index ^ 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v = prog.A & prog.io;
+		prog.carry = false;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void SHL(CPU& prog, bool& RW) {
+	if (prog.code >> 6 == 3) {
+		prog.X = prog.A;
+	}
+	else {
+		int v = 0;
+		switch (prog.code >> 6) {
+		case 0:
+			v = prog.A << 1;
+			break;
+		case 1:
+			v = prog.X << 1;
+			break;
+		case 2:
+			v = prog.Y << 1;
+			break;
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		switch (prog.code >> 6) {
+		case 0:
+			prog.A = v;
+			break;
+		case 1:
+			prog.X = v;
+			break;
+		case 2:
+			prog.Y = v;
+			break;
+		}
+	}
+	prog.code = OP_NOP;
+}
+void SHR(CPU& prog, bool& RW) {
+	if (prog.code >> 6 == 3) {
+		prog.Y = prog.A;
+	}
+	else {
+		int v = 0;
+		switch (prog.code >> 6) {
+		case 0:
+			v = prog.A << 7;
+			break;
+		case 1:
+			v = prog.X << 7;
+			break;
+		case 2:
+			v = prog.Y << 7;
+			break;
+		}
+		prog.carry = v & 0x80;
+		v >>= 8;
+		prog.zero = !v;
+		switch (prog.code >> 6) {
+		case 0:
+			prog.A = v;
+			break;
+		case 1:
+			prog.X = v;
+			break;
+		case 2:
+			prog.Y = v;
+			break;
+		}
+	}
+	prog.code = OP_NOP;
+	
+}
+void CMP(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v;
+		if (prog.bcd) {
+			v = toBCD(fromBCD(prog.A) + fromBCD(prog.io));
+		}
+		else {
+			v = prog.A - prog.io;
+		}
+		prog.carry = v & 0x100;
+		prog.zero = !v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+
+void PUSH(CPU& prog, bool& RW) {
+	if (prog.code >> 6 == 3) {
+		if (prog.index == 0) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+		}
+		else if (prog.index == 1) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+			prog.flags = prog.io;
+		}
+		else if (prog.index == 2) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+			prog.buffer = prog.io;
+		}
+		else if (prog.index == 3) {
+			prog.addr = prog.IP = prog.buffer | (prog.io << 8);
+			prog.code = OP_NOP;
+		}
+	}
+	else {
+		if (prog.index == 0) {
+			int v = 0;
+
+			switch (prog.code >> 6) {
+			case(0): v = prog.A; break;
+			case(1): v = prog.X; break;
+			case(2): v = prog.Y; break;
+			}
+			prog.addr = prog.SP | 0xFF00;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = v;
+		}
+		else if (prog.index == 1) {
+			prog.addr = prog.IP;
+			prog.code = OP_NOP;
+		}
+	}
+}
+void POP(CPU& prog, bool& RW) {
+	int v = 0;
+
+	if ((prog.code >> 6) == 3) {
+		if (prog.index == 0) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+		}
+		else if (prog.index == 1) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+			prog.buffer = prog.io;
+		}
+		else if (prog.index == 2) {
+			prog.addr = prog.IP = prog.buffer | (prog.io << 8);
+			prog.code = OP_NOP;
+		}
+	}
+	else {
+		if (prog.index == 0) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+		}
+		else if (prog.index == 1) {
+			v = prog.io;
+			prog.addr = prog.IP;
+			switch (prog.code >> 6) {
+			case(0): prog.A = v; break;
+			case(1): prog.X = v; break;
+			case(2): prog.Y = v; break;
+			}
+			prog.code = OP_NOP;
+		}
+	}
+}
+
+void CALL(CPU& prog, bool& RW) {
+	int v = 0;
+
+	if (prog.index == 0) {
+		prog.addr = prog.SP | 0xFF00;
+		prog.SP = prog.SP - 1;
+		RW = true;
+		prog.io = (prog.IP + 2) >> 8;
+	}
+	else if (prog.index == 1) {
+		prog.addr = prog.SP | 0xFF00;
+		prog.SP = prog.SP - 1;
+		RW = true;
+		prog.io = (prog.IP + 2) & 0xFF;
+	}
+	else if (prog.index == 2) {
+		prog.addr = prog.IP;
+		prog.index = 3;
+	}
+	else if ((prog.index & 0xC) == 4) {
+		if (AddrMode(prog)) {
+			prog.IP = prog.addr;
+			prog.code = OP_NOP;
+		}
+	}
+}
+void INT(CPU& prog, bool& RW) {
+	int v = 0;
+
+	if (prog.index == 0) {
+		prog.addr = prog.SP | 0xFF00;
+		prog.SP = prog.SP - 1;
+		RW = true;
+		prog.io = (prog.IP) >> 8;
+	}
+	else if (prog.index == 1) {
+		prog.addr = prog.SP | 0xFF00;
+		prog.SP = prog.SP - 1;
+		RW = true;
+		prog.io = (prog.IP) & 0xFF;
+	}
+	else if (prog.index == 2) {
+		prog.addr = prog.SP | 0xFF00;
+		prog.SP = prog.SP - 1;
+		RW = true;
+		prog.io = prog.flags;
+	}
+	else if (prog.index == 3) {
+		prog.addr = 0x7FFC;
+	}
+	else if (prog.index == 4) {
+		prog.addr++;
+		prog.buffer = prog.io;
+	}
+	else if (prog.index == 5) {
+		prog.addr = prog.IP = prog.buffer | (prog.io << 8);
+		prog.interruptEnable = 0;
+		prog.code = OP_NOP;
+	}
+}
+
+void SET(CPU& prog, bool& RW) {
+	switch (prog.code >> 6) {
+	case 0:
+		prog.carry = 1;
+		break;
+	case 1:
+		prog.zero = 1;
+		break;
+	case 2:
+		prog.bcd = 1;
+		break;
+	case 3:
+		prog.interruptEnable = 1;
+		break;
+	}
+	prog.code = OP_NOP;
+}
+void CLR(CPU& prog, bool& RW) {
+	switch (prog.code >> 6) {
+	case 0:
+		prog.carry = 0;
+		break;
+	case 1:
+		prog.zero = 0;
+		break;
+	case 2:
+		prog.bcd = 0;
+		break;
+	case 3:
+		prog.interruptEnable = 0;
+		break;
+	}
+	prog.code = OP_NOP;
+}
+
+
+void CPU::interp(bool& RW, bool interrupt) {
+	RW = false;
+	if ((code & 0x3F) == OP_NOP) {
+		if (code >> 6 != 0) {
+			for (int i = 0; i < 100; i++);
+		}
+		index = 255;
+		if (interrupt && interruptEnable) {
+			code = OP_INT;
+		}
+		else {
+			addr = IP = IP + 1;
+			code = io;
+		}
+	}
+
+	switch (code & 0x3F) {
+	case OP_JMP:
+		JMP(*this, RW); break;
+	case OP_BZS:
+		BZS(*this, RW); break;
+	case OP_BZC:
+		BZC(*this, RW); break;
+	case OP_BCS:
+		BCS(*this, RW); break;
+	case OP_BCC:
+		BCC(*this, RW); break;
+	case OP_BG:
+		BG(*this, RW); break;
+	case OP_BLE:
+		BLE(*this, RW); break;
+	case OP_LDA:
+		LDA(*this, RW); break;
+	case OP_LDX:
+		LDX(*this, RW); break;
+	case OP_LDY:
+		LDY(*this, RW); break;
+	case OP_STA:
+		STA(*this, RW); break;
+	case OP_STX:
+		STX(*this, RW); break;
+	case OP_STY:
+		STY(*this, RW); break;
+	case OP_INC:
+		INC(*this, RW); break;
+	case OP_DEC:
+		DEC(*this, RW); break;
+	case OP_ADD:
+		ADD(*this, RW); break;
+	case OP_SUB:
+		SUB(*this, RW); break;
+	case OP_AND:
+		AND(*this, RW); break;
+	case OP_OR:
+		OR(*this, RW); break;
+	case OP_XOR:
+		XOR(*this, RW); break;
+	case OP_SHL:
+		SHL(*this, RW); break;
+	case OP_SHR:
+		SHR(*this, RW); break;
+	case OP_CMP:
+		CMP(*this, RW); break;
+	case OP_PSH:
+		PUSH(*this, RW); break;
+	case OP_POP:
+		POP(*this, RW); break;
+	case OP_CAL:
+		CALL(*this, RW); break;
+	case OP_INT:
+		INT(*this, RW); break;
+	case OP_SF:
+		SET(*this, RW); break;
+	case OP_CF:
+		CLR(*this, RW); break;
 	}
 
 	index = index + 1;
-	return rw;
 }

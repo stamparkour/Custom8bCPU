@@ -1,0 +1,67 @@
+   outp | addr | data (base 16)
+
+   --:- | 8000 |             ; std_mem:
+   --:- | 8020 |             ; vmsg:
+   --:- | 8022 |             ; var:
+    0:0 |    0 |             ; print:
+    0:0 |    0 | 1a          ; push a
+    1:0 |    1 | 08 00       ; lda 0x00
+    3:0 |    3 | 4b 00 80    ; sta [.index]
+    6:0 |    6 |             ; .loop:
+    6:0 |    6 | c8          ; lda [yx]
+    7:0 |    7 | 19 0a       ; cmp "\n"
+    9:0 |    9 | 43 19 00    ; bne .b2
+    c:0 |    c | 48 00 80    ; lda [.index]
+    f:0 |    f | 10 0f       ; add 15
+   11:0 |   11 | 14 10       ; and 0b00010000
+   13:0 |   13 | 4b 00 80    ; sta [.index]
+   16:0 |   16 | 41 2c 00    ; jmp .increment
+   19:0 |   19 |             ; .b2:
+   19:0 |   19 | 19 00       ; cmp 0
+   1b:0 |   1b | 43 20 00    ; bne .b3
+   1e:0 |   1e | 1b          ; pop a
+   1f:0 |   1f | db          ; ret
+   20:0 |   20 |             ; .b3:
+   20:0 |   20 | 5a          ; push x
+   21:0 |   21 | 49 00 80    ; ldx [.index]
+   24:0 |   24 | 8b e0 fe    ; sta [x~ display]
+   27:0 |   27 | 4e          ; inc x
+   28:0 |   28 | 4c 00 80    ; stx [.index]
+   2b:0 |   2b | 5b          ; pop x
+   2c:0 |   2c |             ; .increment:
+   2c:0 |   2c | 4e          ; inc x
+   2d:0 |   2d | 45 31 00    ; bcc .b1
+   30:0 |   30 | 8e          ; inc y
+   31:0 |   31 |             ; .b1:
+   31:0 |   31 | 41 06 00    ; jmp .loop
+   34:0 |   34 |             ; entry:
+   34:0 |   34 | de          ; sti
+   35:0 |   35 | 08 03       ; lda 3
+   37:0 |   37 | 4b 22 80    ; sta [var]
+   3a:0 |   3a | 0a 00 09 59 ; ldyx message
+   3e:0 |   3e | 5c 00 00    ; call print
+   41:0 |   41 | 41 41 00    ; jmp $
+   44:0 |   44 |             ; interrupt:
+   44:0 |   44 | 0a 00 09 65 ; ldyx message2
+   48:0 |   48 | 5c 00 00    ; call print
+   4b:0 |   4b | 40          ; brk
+   4c:0 |   4c | 48 22 80    ; lda [var]
+   4f:0 |   4f | 0e          ; inc a
+   50:0 |   50 | 4b 22 80    ; sta [var]
+   53:0 |   53 | 10 30       ; add "0"
+   55:0 |   55 | 4b 65 00    ; sta [message2]
+   58:0 |   58 | da          ; iret
+   59:0 |   59 |             ; message:
+   59:0 |   59 | 63 68 65 65 73 65 3f 0a 59 7c 4e ; "cheese?\nY|N"
+   64:0 |   64 | 00          ; 0x00
+   65:0 |   65 |             ; message2:
+   65:0 |   65 | 30          ; "0"
+   66:0 |   66 | 00          ; 0x00
+ 7ff0:0 | 7ff0 | 00 00       ; le(0x0000`16)
+ 7ff2:0 | 7ff2 | 00 00       ; le(0x0000`16)
+ 7ff4:0 | 7ff4 | 00 00       ; le(0x0000`16)
+ 7ff6:0 | 7ff6 | 00 00       ; le(0x0000`16)
+ 7ff8:0 | 7ff8 | 00 00       ; le(0x0000`16)
+ 7ffa:0 | 7ffa | 00 00       ; le(0x0000`16)
+ 7ffc:0 | 7ffc | 44 00       ; le(interrupt`16)
+ 7ffe:0 | 7ffe | 34 00       ; le(entry`16)

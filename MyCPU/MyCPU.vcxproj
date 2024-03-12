@@ -127,7 +127,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="MyCPU.cpp" />
     <ClCompile Include="RunCPU.cpp" />
     <ClCompile Include="Source.cpp" />
