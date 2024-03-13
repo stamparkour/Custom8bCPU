@@ -9,29 +9,49 @@ std_mem:
 ;preserve A,X,Y
 ;payx
 
-	
-;void clearscreen()
 
 ;void printhex(uint8_t a)
 
-;void memcpy(char* s : std_mem+0, char* d : std_mem+2, uint8_t length : x)
+;void memcpy(char* s : std_mem+0, char* d : yx, uint8_t length : a)
 memcpy:
 	.s = std_mem + 0
 	.d = std_mem + 2
 	.len = std_mem + 4
 
-	stx [.len]
+	styx [.d]
+	sta [.len]
 	.loop:
 		ldyx [.s]
 		lda [yx]
+		inc X
+		bcc .b1
+		inc Y
+		.b1:
+		styx [.s]
 		ldyx [.d]
 		sta [yx]
+		inc X
+		bcc .b2
+		inc Y
+		.b2:
+		styx [.d]
 		ldx [.len]
 		dec X
 		stx [.len]
 		bzc .loop
 	ret
 	
+;void clearscreen()
+clearscreen:
+	;uint8_t i = 20;
+	;uint8_t c = ' ';
+	ldx 0x20
+	lda " "
+	.loop:
+		decx
+		sta [x~ display]
+	bne .loop
+	ret
 
 ;void print(char* cstring : yx)
 print:

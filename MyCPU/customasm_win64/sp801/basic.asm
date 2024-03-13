@@ -1,12 +1,19 @@
 #include "sp801.asm"
 #include "std.asm"
 
+;requests:
+;ret to call
+;int to push
+;nop to jmp
+;sty, stx, sta extra space - xty, ytx
+;ldyx and styx reserved
+
 entry:
 	ldyx message2
-	styx std_mem+0
+	styx [std_mem+0]
 	ldyx vmsg
-	styx std_mem+2
-	ldx 2
+	styx [std_mem+2]
+	ldx message2.length
 	call memcpy
 	sti
 	lda 3
@@ -15,6 +22,8 @@ entry:
 	call print
 	jmp $
 interrupt:
+	call clearscreen
+
 	ldyx vmsg
 	call print
 	
@@ -33,11 +42,12 @@ interrupt:
 message:
 #d "cheese?\nY|N", 0x00
 message2:
-#d "0", 0x00
+#d "0 is a god\nbe", 0x00
+.length = $-message2
 
 #bank mem
 
 vmsg:
-#res 2
+#res message2.length
 var:
 #res 1

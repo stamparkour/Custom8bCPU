@@ -29,12 +29,18 @@
     <ClInclude Include="myCPU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="code.txt">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="customasm_win64\sp801\basic.bin">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="customasm_win64\sp801\sp801.asm">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="customasm_win64\sp801\std.asm">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="customasm_win64\sp801\basic.asm">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

@@ -11,10 +11,12 @@
 //data manip - mov reg to addr, mov addr to reg
 
 
-byte rom[0x7FFF] = {};
-byte ram[0x7FFF] = {};
+byte rom[0x8000] = {};
+byte ram[0x8000] = {};
 int main(size_t argc, char* argv[]) {
-	std::fstream s{argv[1], std::ios::in | std::ios::binary};
-	s.read((char*)rom, 0x7FFF);
+	const char* c = argv[1];
+	if (!c) c = "customasm_win64\\sp801\\basic.bin";
+	std::fstream s{c, std::ios::in | std::ios::binary};
+	s.read((char*)rom, 0x8000);
 	RunCPU(rom, ram);
 }

@@ -1,5 +1,6 @@
 #include "myCPU.h"
 #include <cstdint>
+#include <iostream>
 
 int BCDfix(uint8_t v) {
 	int a = v & 0xF;
@@ -204,29 +205,41 @@ void STA(CPU& prog, bool& RW) {
 	}
 }
 void STX(CPU& prog, bool& RW) {
-	if ((prog.index & 0xC) == 0) {
-		if (AddrMode(prog)) {
-			prog.index = 0x3;
-			RW = true;
-			prog.io = prog.X;
-		}
-	}
-	else if (prog.index == 0x4) {
-		prog.addr = prog.IP;
+	if (prog.code >> 6 == 0) {
+		prog.Y = prog.X;
 		prog.code = OP_NOP;
+	}
+	else {
+		if ((prog.index & 0xC) == 0) {
+			if (AddrMode(prog)) {
+				prog.index = 0x3;
+				RW = true;
+				prog.io = prog.X;
+			}
+		}
+		else if (prog.index == 0x4) {
+			prog.addr = prog.IP;
+			prog.code = OP_NOP;
+		}
 	}
 }
 void STY(CPU& prog, bool& RW) {
-	if ((prog.index & 0xC) == 0) {
-		if (AddrMode(prog)) {
-			prog.index = 0x3;
-			RW = true;
-			prog.io = prog.Y;
-		}
-	}
-	else if (prog.index == 0x4) {
-		prog.addr = prog.IP;
+	if (prog.code >> 6 == 0) {
+		prog.X = prog.Y;
 		prog.code = OP_NOP;
+	}
+	else {
+		if ((prog.index & 0xC) == 0) {
+			if (AddrMode(prog)) {
+				prog.index = 0x3;
+				RW = true;
+				prog.io = prog.Y;
+			}
+		}
+		else if (prog.index == 0x4) {
+			prog.addr = prog.IP;
+			prog.code = OP_NOP;
+		}
 	}
 }
 
@@ -395,7 +408,7 @@ void XOR(CPU& prog, bool& RW) {
 }
 void SHL(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 3) {
-		prog.X = prog.A;
+		prog.Y = prog.A;
 	}
 	else {
 		int v = 0;
@@ -428,7 +441,7 @@ void SHL(CPU& prog, bool& RW) {
 }
 void SHR(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 3) {
-		prog.Y = prog.A;
+		prog.X = prog.A;
 	}
 	else {
 		int v = 0;
@@ -483,23 +496,35 @@ void CMP(CPU& prog, bool& RW) {
 }
 
 void PUSH(CPU& prog, bool& RW) {
-	if (prog.code >> 6 == 3) {
+	if (prog.code >> 6 == 3) {//int
 		if (prog.index == 0) {
-			prog.SP = prog.SP + 1;
 			prog.addr = prog.SP | 0xFF00;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = (prog.IP) >> 8;
 		}
 		else if (prog.index == 1) {
-			prog.SP = prog.SP + 1;
 			prog.addr = prog.SP | 0xFF00;
-			prog.flags = prog.io;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = (prog.IP) & 0xFF;
 		}
 		else if (prog.index == 2) {
-			prog.SP = prog.SP + 1;
 			prog.addr = prog.SP | 0xFF00;
-			prog.buffer = prog.io;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = prog.flags;
 		}
 		else if (prog.index == 3) {
+			prog.addr = 0x7FFC;
+		}
+		else if (prog.index == 4) {
+			prog.addr++;
+			prog.buffer = prog.io;
+		}
+		else if (prog.index == 5) {
 			prog.addr = prog.IP = prog.buffer | (prog.io << 8);
+			prog.interruptEnable = 0;
 			prog.code = OP_NOP;
 		}
 	}
@@ -526,7 +551,7 @@ void PUSH(CPU& prog, bool& RW) {
 void POP(CPU& prog, bool& RW) {
 	int v = 0;
 
-	if ((prog.code >> 6) == 3) {
+	if ((prog.code >> 6) == 3) {//iret
 		if (prog.index == 0) {
 			prog.SP = prog.SP + 1;
 			prog.addr = prog.SP | 0xFF00;
@@ -534,9 +559,14 @@ void POP(CPU& prog, bool& RW) {
 		else if (prog.index == 1) {
 			prog.SP = prog.SP + 1;
 			prog.addr = prog.SP | 0xFF00;
-			prog.buffer = prog.io;
+			prog.flags = prog.io;
 		}
 		else if (prog.index == 2) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+			prog.buffer = prog.io;
+		}
+		else if (prog.index == 3) {
 			prog.addr = prog.IP = prog.buffer | (prog.io << 8);
 			prog.code = OP_NOP;
 		}
@@ -562,64 +592,46 @@ void POP(CPU& prog, bool& RW) {
 void CALL(CPU& prog, bool& RW) {
 	int v = 0;
 
-	if (prog.index == 0) {
-		prog.addr = prog.SP | 0xFF00;
-		prog.SP = prog.SP - 1;
-		RW = true;
-		prog.io = (prog.IP + 2) >> 8;
-	}
-	else if (prog.index == 1) {
-		prog.addr = prog.SP | 0xFF00;
-		prog.SP = prog.SP - 1;
-		RW = true;
-		prog.io = (prog.IP + 2) & 0xFF;
-	}
-	else if (prog.index == 2) {
-		prog.addr = prog.IP;
-		prog.index = 3;
-	}
-	else if ((prog.index & 0xC) == 4) {
-		if (AddrMode(prog)) {
-			prog.IP = prog.addr;
+	if ((prog.code >> 6) == 0) {//ret
+		if (prog.index == 0) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+		}
+		else if (prog.index == 1) {
+			prog.SP = prog.SP + 1;
+			prog.addr = prog.SP | 0xFF00;
+			prog.buffer = prog.io;
+		}
+		else if (prog.index == 2) {
+			prog.addr = prog.IP = prog.buffer | (prog.io << 8);
 			prog.code = OP_NOP;
 		}
 	}
-}
-void INT(CPU& prog, bool& RW) {
-	int v = 0;
-
-	if (prog.index == 0) {
-		prog.addr = prog.SP | 0xFF00;
-		prog.SP = prog.SP - 1;
-		RW = true;
-		prog.io = (prog.IP) >> 8;
-	}
-	else if (prog.index == 1) {
-		prog.addr = prog.SP | 0xFF00;
-		prog.SP = prog.SP - 1;
-		RW = true;
-		prog.io = (prog.IP) & 0xFF;
-	}
-	else if (prog.index == 2) {
-		prog.addr = prog.SP | 0xFF00;
-		prog.SP = prog.SP - 1;
-		RW = true;
-		prog.io = prog.flags;
-	}
-	else if (prog.index == 3) {
-		prog.addr = 0x7FFC;
-	}
-	else if (prog.index == 4) {
-		prog.addr++;
-		prog.buffer = prog.io;
-	}
-	else if (prog.index == 5) {
-		prog.addr = prog.IP = prog.buffer | (prog.io << 8);
-		prog.interruptEnable = 0;
-		prog.code = OP_NOP;
+	else {
+		if (prog.index == 0) {
+			prog.addr = prog.SP | 0xFF00;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = (prog.IP + 2) >> 8;
+		}
+		else if (prog.index == 1) {
+			prog.addr = prog.SP | 0xFF00;
+			prog.SP = prog.SP - 1;
+			RW = true;
+			prog.io = (prog.IP + 2) & 0xFF;
+		}
+		else if (prog.index == 2) {
+			prog.addr = prog.IP;
+			prog.index = 3;
+		}
+		else if ((prog.index & 0xC) == 4) {
+			if (AddrMode(prog)) {
+				prog.IP = prog.addr;
+				prog.code = OP_NOP;
+			}
+		}
 	}
 }
-
 void SET(CPU& prog, bool& RW) {
 	switch (prog.code >> 6) {
 	case 0:
@@ -655,13 +667,57 @@ void CLR(CPU& prog, bool& RW) {
 	prog.code = OP_NOP;
 }
 
+void LDYX(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.X = prog.io;
+		prog.addr++;
+	}
+	else if (prog.index == 0x5) {
+		prog.Y = prog.io;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void STYX(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+			RW = true;
+			prog.io = prog.X;
+		}
+	}
+	else if (prog.index == 0x4) {
+		prog.io = prog.Y;
+		RW = true;
+		prog.addr++;
+	}
+	else if (prog.index == 0x5) {
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+
 
 void CPU::interp(bool& RW, bool interrupt) {
 	RW = false;
-	if ((code & 0x3F) == OP_NOP) {
-		if (code >> 6 != 0) {
-			for (int i = 0; i < 100; i++);
+	if (code == OP_NOP) {
+		index = 255;
+		if (interrupt && interruptEnable) {
+			code = OP_INT;
 		}
+		else {
+			addr = IP = IP + 1;
+			code = io;
+		}
+	}
+	else if (code == OP_BRK) {
+		char t;
+		std::cin >> t;
 		index = 255;
 		if (interrupt && interruptEnable) {
 			code = OP_INT;
@@ -725,12 +781,14 @@ void CPU::interp(bool& RW, bool interrupt) {
 		POP(*this, RW); break;
 	case OP_CAL:
 		CALL(*this, RW); break;
-	case OP_INT:
-		INT(*this, RW); break;
 	case OP_SF:
 		SET(*this, RW); break;
 	case OP_CF:
 		CLR(*this, RW); break;
+	case OP_STYX:
+		STYX(*this, RW); break;
+	case OP_LDYX:
+		LDYX(*this, RW); break;
 	}
 
 	index = index + 1;
