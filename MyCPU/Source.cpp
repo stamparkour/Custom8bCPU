@@ -18,5 +18,5 @@ int main(size_t argc, char* argv[]) {
 	if (!c) c = "customasm_win64\\sp801\\basic.bin";
 	std::fstream s{c, std::ios::in | std::ios::binary};
 	s.read((char*)rom, 0x8000);
-	RunCPU(rom, ram);
+	RunCPU(rom, ram, (argv[1]? argv[2]:0));
 }

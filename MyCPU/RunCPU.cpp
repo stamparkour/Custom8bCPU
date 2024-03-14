@@ -95,7 +95,6 @@ auto since(std::chrono::time_point<clock_t, duration_t> const& start)
 }
 
 const char* OPCODE_NAME[] = {
-	"NOP",
 	"JMP",
 	"BZS",//e
 	"BZC",//ne
@@ -103,6 +102,7 @@ const char* OPCODE_NAME[] = {
 	"BCC",//ge
 	"BG",
 	"BLE",
+	"CAL",
 	"LDA",
 	"LDX",
 	"LDY",
@@ -118,15 +118,15 @@ const char* OPCODE_NAME[] = {
 	"AND",
 	"OR",
 	"XOR",
+	"CMP",
 	"SHL",
 	"SHR",
-	"CMP",
 	"PSH",
 	"POP",
-	"CAL",
-	"RET",
 	"SF",
 	"CF",
+	"LDYX",
+	"STYX",
 };
 const char* OPCODE_MODE[] = {
 	"c",
@@ -135,7 +135,14 @@ const char* OPCODE_MODE[] = {
 	"yx"
 };
 void getOpName(byte code, char* b) {
-	sprintf(b, "%s%s", OPCODE_NAME[code&0x1F], OPCODE_MODE[code >> 6]);
+	const char* op = 0;
+	switch (code) {
+	case 0:
+		op = "NOP"; break;
+	default:
+		op = OPCODE_NAME[code & 0x1F];
+	}
+	sprintf(b, "%s%s", op, OPCODE_MODE[code >> 6]);
 }
 
 int frame = 0;
@@ -175,7 +182,21 @@ void MusicControlLoop() {
 	}
 }
 
-void RunCPU(byte* _rom, byte* _ram) {
+double waitTimes[] = {
+	1.0 / 1024,
+	1.0 / 256,
+	1.0 / 16,
+	1,
+};
+
+double getWait(char v) {
+	if (v == 0) v = '0';
+	v -= '0';
+	if (v > 3) v = 3;
+	return waitTimes[v];
+}
+
+void RunCPU(byte* _rom, byte* _ram, const char* flags) {
 	InitTimer();
 
 	rom = _rom;
@@ -188,15 +209,19 @@ void RunCPU(byte* _rom, byte* _ram) {
 	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	int prev = since(start).count();
 	double prevTime = 0;
+	char debugFlag = flags[0];
+	char waitFlag = debugFlag ? flags[1] : 0;
+	bool debug = debugFlag == 'd';
+	double waitTime = getWait(waitFlag);
 	while (true) {
 		memoryManager((uint8_t&)prog.io, prog.addr, rw);
-		//printCPU(prog, rw);
+		if(debug) printCPU(prog, rw);
 		prog.interp(rw, GetKeyState(VK_SPACE) & 0x8000);
 
 		double wait;
 		do {
 			double time = GetTime();
-			wait = 1.0 / 1024 - (time - prevTime);
+			wait = waitTime - (time - prevTime);
 		} while (wait > 0);
 		prevTime = GetTime();
 	}

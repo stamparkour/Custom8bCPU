@@ -423,6 +423,7 @@ void SHL(CPU& prog, bool& RW) {
 			v = prog.Y << 1;
 			break;
 		}
+		v |= prog.carry;
 		prog.carry = v & 0x100;
 		prog.zero = !v;
 		switch (prog.code >> 6) {
@@ -456,6 +457,7 @@ void SHR(CPU& prog, bool& RW) {
 			v = prog.Y << 7;
 			break;
 		}
+		v |= prog.carry ? 0x8000 : 0;
 		prog.carry = v & 0x80;
 		v >>= 8;
 		prog.zero = !v;

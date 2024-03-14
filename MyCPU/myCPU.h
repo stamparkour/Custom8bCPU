@@ -73,6 +73,6 @@ struct CPU {
 	void interp(bool& RW, bool interrupt);
 };
 
-void RunCPU(byte* _rom, byte* _ram);
+void RunCPU(byte* _rom, byte* _ram, const char* flags);
 void InitTimer();
 double GetTime();
