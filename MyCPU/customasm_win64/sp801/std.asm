@@ -48,7 +48,7 @@ clearscreen:
 	ldx 0x20
 	lda " "
 	.loop:
-		decx
+		dec x
 		sta [x~ display]
 	bne .loop
 	ret

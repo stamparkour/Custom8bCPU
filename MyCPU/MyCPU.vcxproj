@@ -140,6 +140,9 @@
     <None Include="customasm_win64\sp801\sp801.asm" />
     <None Include="customasm_win64\sp801\std.asm" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="customasm_win64\sp801\basic.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

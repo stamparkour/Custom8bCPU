@@ -678,6 +678,7 @@ void LDYX(CPU& prog, bool& RW) {
 	else if (prog.index == 0x4) {
 		prog.X = prog.io;
 		prog.addr++;
+		if ((prog.code >> 6) == 0) prog.IP++;
 	}
 	else if (prog.index == 0x5) {
 		prog.Y = prog.io;

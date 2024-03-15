@@ -137,8 +137,28 @@ const char* OPCODE_MODE[] = {
 void getOpName(byte code, char* b) {
 	const char* op = 0;
 	switch (code) {
-	case 0:
+	case OP_NOP:
 		op = "NOP"; break;
+	case OP_BRK:
+		op = "BRK"; break;
+	case OP_RET:
+		op = "BRK"; break;
+	case OP_INT:
+		op = "BRK"; break;
+	case OP_IRET:
+		op = "IRET"; break;
+	case OP_XTA:
+		op = "XTA"; break;
+	case OP_YTA:
+		op = "YTA"; break;
+	case OP_ATX:
+		op = "ATX"; break;
+	case OP_ATY:
+		op = "ATY"; break;
+	case OP_XTY:
+		op = "XTY"; break;
+	case OP_YTX:
+		op = "YTX"; break;
 	default:
 		op = OPCODE_NAME[code & 0x1F];
 	}
@@ -151,7 +171,7 @@ void printCPU(CPU& prog, bool rw) {
 	char b[16];
 	getOpName(prog.code, b);
 	printf("[%i]%.4x : %.2x %c\n", frame, (int)prog.addr, (int)prog.io, rw ? 'W' : 'R');
-	printf(" - code : %.2x - %s, IP: %.4x, A: %.2x, X: %.2x\n", (int)prog.code, b, (int)prog.IP, (int)prog.A, (int)prog.X);
+	printf(" - code : %.2x - %s, IP: %.4x, A: %.2x, X: %.2x, Y: %.2x, f: %.2x\n", (int)prog.code, b, (int)prog.IP, (int)prog.A, (int)prog.X, (int)prog.Y, (int)prog.flags);
 }
 
 double timerTickLength = 0;
@@ -183,9 +203,12 @@ void MusicControlLoop() {
 }
 
 double waitTimes[] = {
+	0,
+	1.0 / 4096,
 	1.0 / 1024,
 	1.0 / 256,
 	1.0 / 16,
+	1.0 / 4,
 	1,
 };
 
@@ -209,7 +232,7 @@ void RunCPU(byte* _rom, byte* _ram, const char* flags) {
 	std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	int prev = since(start).count();
 	double prevTime = 0;
-	char debugFlag = flags[0];
+	char debugFlag = flags ? flags[0]: 0;
 	char waitFlag = debugFlag ? flags[1] : 0;
 	bool debug = debugFlag == 'd';
 	double waitTime = getWait(waitFlag);

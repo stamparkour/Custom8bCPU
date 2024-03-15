@@ -12,8 +12,7 @@ entry:
 	ldyx message2
 	styx [std_mem+0]
 	ldyx vmsg
-	styx [std_mem+2]
-	ldx message2.length
+	lda message2.length
 	call memcpy
 	sti
 	lda 3
@@ -27,7 +26,6 @@ interrupt:
 	ldyx vmsg
 	call print
 	
-	brk
 	lda [var]
 	inc a
 	cmp 10
