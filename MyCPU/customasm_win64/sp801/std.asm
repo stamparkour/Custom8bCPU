@@ -49,7 +49,8 @@ clearscreen:
 	lda " "
 	.loop:
 		dec x
-		sta [x~ display]
+		stx [display]
+		sta [display]
 	bne .loop
 	ret
 
@@ -75,10 +76,12 @@ print:
 		bne .b3
 			ret
 		.b3:
-		;display[index] = *cstring;
+		;display(index);
+		;display(*cstring);
 		push x
 		ldx [.index]
-		sta [x~ display]
+		stx [display]
+		sta [display]
 		;index++;
 		inc x
 		stx [.index]

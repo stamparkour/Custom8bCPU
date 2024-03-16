@@ -51,27 +51,42 @@ void popxy() {
 	gotoxy(_BACK.X, _BACK.Y);
 }
 
-void Display(int addr, int v) {
-	addr %= 32;
-	pushxy(addr % 16, addr / 16);
-	char arr[2];
-	arr[0] = v;
-	arr[1] = 0;
-	printf(arr);
-	popxy();
+struct {
+	int addr;
+	int mode;
+	int c;
+} DisplayState;
+void Display(int v) {
+	switch (DisplayState.mode) {
+	case 0:
+		v %= 32;
+		DisplayState.addr = v;
+		break;
+	case 1:
+		pushxy(DisplayState.addr % 16, DisplayState.addr / 16);
+		char arr[2];
+		arr[0] = v;
+		arr[1] = 0;
+		printf(arr);
+		popxy();
+		break;
+	}
+	DisplayState.mode++;
+	DisplayState.mode %= 2;
+	DisplayState.c++;
 }
 
 char keyDown;
 void memoryManager(byte& bus, int addr, bool rw) {
-	if (addr < 0x7FFF) {
+	if (addr < 0x8000) {
 		if (rw);
 		else {
 			bus = rom[addr];
 		}
 	}
-	else if (addr >= 0xFEE0 && addr < 0xFF00) {
+	else if (addr == 0xFEE0) {
 		if (rw) {
-			Display(addr - 0xFEE0, bus);
+			Display(bus);
 		}
 	}
 	else if(addr < 0x10000) {
