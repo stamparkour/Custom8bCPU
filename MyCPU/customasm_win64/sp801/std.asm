@@ -94,3 +94,41 @@ print:
 		.b1:
 	;}
 	jmp .loop
+
+HEX_DIGITS:
+#d "0123456789ABCDEF"
+;void printByteHex(unsigned char v : a, unsigned char i : y) //i -> i + 2
+printByteHex:
+	.data = std_mem
+	sta [.data]
+	and 0x0F
+	atx
+	lda [x~ HEX_DIGITS]
+	ytx
+	inc y
+	stx [display]
+	sta [display]
+	lda [.data]
+	and 0xF0
+	clc
+	shr a
+	shr a
+	shr a
+	shr a
+	atx
+	lda [x~ HEX_DIGITS]
+	ytx
+	inc y
+	stx [display]
+	sta [display]
+	ret
+;void printShortHex(unsigned char v : xy)
+printShortHex:
+	.data = std_mem+1
+	styx [.data]
+	lda [.data]
+	ldy 0
+	call printByteHex
+	lda [.data+1]
+	call printByteHex
+	ret

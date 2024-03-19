@@ -9,32 +9,21 @@
 ;ldyx and styx reserved
 
 entry:
-	ldyx message2
-	styx [std_mem+0]
-	ldyx vmsg
-	lda message2.length
-	call memcpy
-	sti
 	lda 3
 	sta [var]
 	ldyx message
 	call print
+	sti
 	jmp $
 interrupt:
 	call clearscreen
 
-	ldyx vmsg
-	call print
-	
-	lda [var]
+	ldy 0
+	lda [test]
+	call printByteHex
+	lda [test]
 	inc a
-	cmp 10
-	bne .b1
-		lda 0
-	.b1:
-	sta [var] 
-	add "0"
-	sta [vmsg]
+	sta [test]
 	iret
 
 message:
@@ -45,7 +34,7 @@ message2:
 
 #bank mem
 
-vmsg:
-#res message2.length
 var:
 #res 1
+test:
+#res 2
