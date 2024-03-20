@@ -5,6 +5,8 @@ typedef unsigned short word;
 
 #define OP_NOP OPCODE::OP_JMP
 #define OP_BRK OPCODE::OP_BZS
+#define OP_DBS OPCODE::OP_BZC
+#define OP_DBC OPCODE::OP_BZC
 #define OP_RET OPCODE::OP_CAL
 #define OP_INT OPCODE::OP_PSH | 0xC0
 #define OP_IRET OPCODE::OP_POP | 0xC0
@@ -70,7 +72,7 @@ struct CPU {
 			byte interruptEnable : 1;
 		};
 	};
-	void interp(bool& RW, bool interrupt);
+	bool interp(bool& RW, bool interrupt);
 };
 
 void RunCPU(byte* _rom, byte* _ram, const char* flags);

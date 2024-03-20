@@ -254,7 +254,7 @@ void RunCPU(byte* _rom, byte* _ram, const char* flags) {
 	while (true) {
 		memoryManager((uint8_t&)prog.io, prog.addr, rw);
 		if(debug) printCPU(prog, rw);
-		prog.interp(rw, GetKeyState(VK_SPACE) & 0x8000);
+		if(prog.interp(rw, GetKeyState(VK_SPACE) & 0x8000)) printCPU(prog, rw);
 
 		double wait;
 		do {

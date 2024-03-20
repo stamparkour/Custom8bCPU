@@ -408,7 +408,7 @@ void XOR(CPU& prog, bool& RW) {
 }
 void SHL(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 3) {
-		prog.Y = prog.A;
+		prog.X = prog.A;
 	}
 	else {
 		int v = 0;
@@ -442,7 +442,7 @@ void SHL(CPU& prog, bool& RW) {
 }
 void SHR(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 3) {
-		prog.X = prog.A;
+		prog.Y = prog.A;
 	}
 	else {
 		int v = 0;
@@ -705,8 +705,8 @@ void STYX(CPU& prog, bool& RW) {
 	}
 }
 
-
-void CPU::interp(bool& RW, bool interrupt) {
+bool dbg = false;
+bool CPU::interp(bool& RW, bool interrupt) {
 	RW = false;
 	if (code == OP_NOP) {
 		index = 255;
@@ -717,6 +717,28 @@ void CPU::interp(bool& RW, bool interrupt) {
 			addr = IP = IP + 1;
 			code = io;
 		}
+	}
+	else if (code == OP_DBS) {
+		index = 255;
+		if (interrupt && interruptEnable) {
+			code = OP_INT;
+		}
+		else {
+			addr = IP = IP + 1;
+			code = io;
+		}
+		dbg = true;
+	}
+	else if (code == OP_DBC) {
+		index = 255;
+		if (interrupt && interruptEnable) {
+			code = OP_INT;
+		}
+		else {
+			addr = IP = IP + 1;
+			code = io;
+		}
+		dbg = false;
 	}
 	else if (code == OP_BRK) {
 		char t;
@@ -730,69 +752,71 @@ void CPU::interp(bool& RW, bool interrupt) {
 			code = io;
 		}
 	}
-
-	switch (code & 0x3F) {
-	case OP_JMP:
-		JMP(*this, RW); break;
-	case OP_BZS:
-		BZS(*this, RW); break;
-	case OP_BZC:
-		BZC(*this, RW); break;
-	case OP_BCS:
-		BCS(*this, RW); break;
-	case OP_BCC:
-		BCC(*this, RW); break;
-	case OP_BG:
-		BG(*this, RW); break;
-	case OP_BLE:
-		BLE(*this, RW); break;
-	case OP_LDA:
-		LDA(*this, RW); break;
-	case OP_LDX:
-		LDX(*this, RW); break;
-	case OP_LDY:
-		LDY(*this, RW); break;
-	case OP_STA:
-		STA(*this, RW); break;
-	case OP_STX:
-		STX(*this, RW); break;
-	case OP_STY:
-		STY(*this, RW); break;
-	case OP_INC:
-		INC(*this, RW); break;
-	case OP_DEC:
-		DEC(*this, RW); break;
-	case OP_ADD:
-		ADD(*this, RW); break;
-	case OP_SUB:
-		SUB(*this, RW); break;
-	case OP_AND:
-		AND(*this, RW); break;
-	case OP_OR:
-		OR(*this, RW); break;
-	case OP_XOR:
-		XOR(*this, RW); break;
-	case OP_SHL:
-		SHL(*this, RW); break;
-	case OP_SHR:
-		SHR(*this, RW); break;
-	case OP_CMP:
-		CMP(*this, RW); break;
-	case OP_PSH:
-		PUSH(*this, RW); break;
-	case OP_POP:
-		POP(*this, RW); break;
-	case OP_CAL:
-		CALL(*this, RW); break;
-	case OP_SF:
-		SET(*this, RW); break;
-	case OP_CF:
-		CLR(*this, RW); break;
-	case OP_STYX:
-		STYX(*this, RW); break;
-	case OP_LDYX:
-		LDYX(*this, RW); break;
+	else {
+		switch (code & 0x3F) {
+		case OP_JMP:
+			JMP(*this, RW); break;
+		case OP_BZS:
+			BZS(*this, RW); break;
+		case OP_BZC:
+			BZC(*this, RW); break;
+		case OP_BCS:
+			BCS(*this, RW); break;
+		case OP_BCC:
+			BCC(*this, RW); break;
+		case OP_BG:
+			BG(*this, RW); break;
+		case OP_BLE:
+			BLE(*this, RW); break;
+		case OP_LDA:
+			LDA(*this, RW); break;
+		case OP_LDX:
+			LDX(*this, RW); break;
+		case OP_LDY:
+			LDY(*this, RW); break;
+		case OP_STA:
+			STA(*this, RW); break;
+		case OP_STX:
+			STX(*this, RW); break;
+		case OP_STY:
+			STY(*this, RW); break;
+		case OP_INC:
+			INC(*this, RW); break;
+		case OP_DEC:
+			DEC(*this, RW); break;
+		case OP_ADD:
+			ADD(*this, RW); break;
+		case OP_SUB:
+			SUB(*this, RW); break;
+		case OP_AND:
+			AND(*this, RW); break;
+		case OP_OR:
+			OR(*this, RW); break;
+		case OP_XOR:
+			XOR(*this, RW); break;
+		case OP_SHL:
+			SHL(*this, RW); break;
+		case OP_SHR:
+			SHR(*this, RW); break;
+		case OP_CMP:
+			CMP(*this, RW); break;
+		case OP_PSH:
+			PUSH(*this, RW); break;
+		case OP_POP:
+			POP(*this, RW); break;
+		case OP_CAL:
+			CALL(*this, RW); break;
+		case OP_SF:
+			SET(*this, RW); break;
+		case OP_CF:
+			CLR(*this, RW); break;
+		case OP_STYX:
+			STYX(*this, RW); break;
+		case OP_LDYX:
+			LDYX(*this, RW); break;
+		}
 	}
 
 	index = index + 1;
+	return dbg;
 }

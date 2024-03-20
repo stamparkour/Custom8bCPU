@@ -70,7 +70,7 @@
    7d:0 |   7d |          ; printByteHex:
    7d:0 |   7d | 4b 00 80 ; sta [.data]
    80:0 |   80 | 14 0f    ; and 0x0F
-   82:0 |   82 | ce       ; atx
+   82:0 |   82 | d8       ; atx
    83:0 |   83 | 88 6d 00 ; lda [x~ HEX_DIGITS]
    86:0 |   86 | 0d       ; ytx
    87:0 |   87 | 8e       ; inc y
@@ -83,7 +83,7 @@
    95:0 |   95 | 19       ; shr a
    96:0 |   96 | 19       ; shr a
    97:0 |   97 | 19       ; shr a
-   98:0 |   98 | ce       ; atx
+   98:0 |   98 | d8       ; atx
    99:0 |   99 | 88 6d 00 ; lda [x~ HEX_DIGITS]
    9c:0 |   9c | 0d       ; ytx
    9d:0 |   9d | 8e       ; inc y
@@ -101,25 +101,26 @@
    b7:0 |   b7 |          ; entry:
    b7:0 |   b7 | 08 03    ; lda 3
    b9:0 |   b9 | 4b 10 80 ; sta [var]
-   bc:0 |   bc | 1e d9 00 ; ldyx message
+   bc:0 |   bc | 1e d8 00 ; ldyx message
    bf:0 |   bf | 47 38 00 ; call print
    c2:0 |   c2 | dc       ; sti
    c3:0 |   c3 | 40 c3 00 ; jmp $
    c6:0 |   c6 |          ; interrupt:
    c6:0 |   c6 | 47 29 00 ; call clearscreen
-   c9:0 |   c9 | 0a 00    ; ldy 0
-   cb:0 |   cb | 48 11 80 ; lda [test]
-   ce:0 |   ce | 47 7d 00 ; call printByteHex
-   d1:0 |   d1 | 48 11 80 ; lda [test]
-   d4:0 |   d4 | 0e       ; inc a
-   d5:0 |   d5 | 4b 11 80 ; sta [test]
-   d8:0 |   d8 | db       ; iret
-   d9:0 |   d9 |          ; message:
-   d9:0 |   d9 | 63 68 65 65 73 65 3f 0a 59 7c 4e ; "cheese?\nY|N"
-   e4:0 |   e4 | 00       ; 0x00
-   e5:0 |   e5 |          ; message2:
-   e5:0 |   e5 | 30 20 69 73 20 61 20 67 6f 64 0a 62 65 ; "0 is a god\nbe"
-   f2:0 |   f2 | 00       ; 0x00
+   c9:0 |   c9 | 02       ; dbs
+   ca:0 |   ca | 0a 00    ; ldy 0
+   cc:0 |   cc | 48 11 80 ; lda [test]
+   cf:0 |   cf | 0e       ; inc a
+   d0:0 |   d0 | 4b 11 80 ; sta [test]
+   d3:0 |   d3 | 47 7d 00 ; call printByteHex
+   d6:0 |   d6 | 03       ; dbc
+   d7:0 |   d7 | db       ; iret
+   d8:0 |   d8 |          ; message:
+   d8:0 |   d8 | 63 68 65 65 73 65 3f 0a 59 7c 4e ; "cheese?\nY|N"
+   e3:0 |   e3 | 00       ; 0x00
+   e4:0 |   e4 |          ; message2:
+   e4:0 |   e4 | 30 20 69 73 20 61 20 67 6f 64 0a 62 65 ; "0 is a god\nbe"
+   f1:0 |   f1 | 00       ; 0x00
  7ff0:0 | 7ff0 | 00 00    ; le(0x0000`16)
  7ff2:0 | 7ff2 | 00 00    ; le(0x0000`16)
  7ff4:0 | 7ff4 | 00 00    ; le(0x0000`16)

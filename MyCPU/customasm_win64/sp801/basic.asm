@@ -17,13 +17,13 @@ entry:
 	jmp $
 interrupt:
 	call clearscreen
-
+	dbs
 	ldy 0
-	lda [test]
-	call printByteHex
 	lda [test]
 	inc a
 	sta [test]
+	call printByteHex
+	dbc
 	iret
 
 message:
