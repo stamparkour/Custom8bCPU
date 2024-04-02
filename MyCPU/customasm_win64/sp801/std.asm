@@ -101,34 +101,72 @@ HEX_DIGITS:
 printByteHex:
 	.data = std_mem
 	sta [.data]
-	and 0x0F
-	atx
+	and 0xF0
+	shr a
+	shr a
+	shr a
+	shr a
+	xta
 	lda [x~ HEX_DIGITS]
-	ytx
+	xty
 	inc y
 	stx [display]
 	sta [display]
 	lda [.data]
-	and 0xF0
-	clc
-	shr a
-	shr a
-	shr a
-	shr a
-	atx
+	and 0x0F
+	xta
 	lda [x~ HEX_DIGITS]
-	ytx
+	xty
 	inc y
 	stx [display]
 	sta [display]
 	ret
-;void printShortHex(unsigned char v : xy)
+;void printShortHex(unsigned short v : yx)
 printShortHex:
 	.data = std_mem+1
 	styx [.data]
-	lda [.data]
+	lda [.data+1]
 	ldy 0
 	call printByteHex
-	lda [.data+1]
+	lda [.data]
+	call printByteHex
+	ret
+
+;void printLongHex(const unsigned long* v : yx)
+printLongHex:
+	.ptr = std_mem+1
+	styx [.ptr]
+	lda [yx]
+	ldy 6
+	call printByteHex
+
+	ldyx [.ptr]
+	inc X
+	bcc .b1
+		inc Y
+	.b1:
+	styx [.ptr]
+	lda [yx]
+	ldy 4
+	call printByteHex
+
+	ldyx [.ptr]
+	inc X
+	bcc .b2
+		inc Y
+	.b2:
+	styx [.ptr]
+	lda [yx]
+	ldy 2
+	call printByteHex
+
+	ldyx [.ptr]
+	inc X
+	bcc .b3
+		inc Y
+	.b3:
+	styx [.ptr]
+	lda [yx]
+	ldy 0
 	call printByteHex
 	ret

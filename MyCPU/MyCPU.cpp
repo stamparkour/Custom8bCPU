@@ -17,12 +17,12 @@ int BCDfix(uint8_t v) {
 	return a | (b << 4) | (c << 8);
 }
 
-int fromBCD(uint8_t v) {
+int fromBCD(int v) {
 	int a = v & 0xF;
 	int b = (v >> 4) & 0xF;
 	return a + b * 10;
 }
-int toBCD(uint8_t v) {
+int toBCD(int v) {
 	int a = v % 10;
 	int b = (v / 10) % 10;
 	int c = (v / 100) % 10;
@@ -49,7 +49,7 @@ bool AddrMode(CPU& prog) {
 			prog.addr = prog.IP = prog.IP + 1;
 		} return false;
 		case 1: {
-			prog.addr = prog.buffer | (prog.io << 8) + prog.X;
+			prog.addr = (prog.buffer | (prog.io << 8)) + prog.X;
 			prog.IP = prog.IP + 1;
 		} return true;
 	} case 3: switch (prog.index & 0x3) {
@@ -206,7 +206,7 @@ void STA(CPU& prog, bool& RW) {
 }
 void STX(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 0) {
-		prog.Y = prog.X;
+		prog.X = prog.Y;
 		prog.code = OP_NOP;
 	}
 	else {
@@ -225,7 +225,7 @@ void STX(CPU& prog, bool& RW) {
 }
 void STY(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 0) {
-		prog.X = prog.Y;
+		prog.Y = prog.X;
 		prog.code = OP_NOP;
 	}
 	else {
@@ -245,7 +245,7 @@ void STY(CPU& prog, bool& RW) {
 
 void INC(CPU& prog, bool& RW)  {
 	if (prog.code >> 6 == 3) {
-		prog.A = prog.X;
+		prog.A = prog.Y;
 	}
 	else {
 		int v = 0;
@@ -263,11 +263,11 @@ void INC(CPU& prog, bool& RW)  {
 		if (prog.bcd) {
 			v = BCDfix(v);
 		}
-		prog.carry = v & 0x100;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
 		switch (prog.code >> 6) {
 		case 0:
-			prog.A = v;
+ 			prog.A = v;
 			break;
 		case 1:
 			prog.X = v;
@@ -281,9 +281,10 @@ void INC(CPU& prog, bool& RW)  {
 	prog.code = OP_NOP;
 	
 }
+
 void DEC(CPU& prog, bool& RW) {
 	if (prog.code >> 6 == 3) {
-		prog.A = prog.Y;
+		prog.A = prog.X;
 	}
 	else {
 		int v = 0;
@@ -301,7 +302,7 @@ void DEC(CPU& prog, bool& RW) {
 		if (prog.bcd) {
 			v = BCDfix(v);
 		}
-		prog.carry = v & 0x100;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
 		switch (prog.code >> 6) {
 		case 0:
@@ -318,7 +319,6 @@ void DEC(CPU& prog, bool& RW) {
 
 	prog.code = OP_NOP;
 }
-
 void ADD(CPU& prog, bool& RW) {
 	if ((prog.index & 0xC) == 0) {
 		if (AddrMode(prog)) {
@@ -333,7 +333,7 @@ void ADD(CPU& prog, bool& RW) {
 		else {
 			v = prog.A + prog.io;
 		}
-		prog.carry = v & 0x100;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
 		prog.A = v;
 		prog.addr = prog.IP;
@@ -354,7 +354,7 @@ void SUB(CPU& prog, bool& RW) {
 		else {
 			v = prog.A + prog.io;
 		}
-		prog.carry = v & 0x100;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
 		prog.A = v;
 		prog.addr = prog.IP;
@@ -423,8 +423,8 @@ void SHL(CPU& prog, bool& RW) {
 			v = prog.Y << 1;
 			break;
 		}
-		v |= prog.carry;
-		prog.carry = v & 0x100;
+		v |= prog.carry & prog.bcd;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
 		switch (prog.code >> 6) {
 		case 0:
@@ -457,8 +457,8 @@ void SHR(CPU& prog, bool& RW) {
 			v = prog.Y << 7;
 			break;
 		}
-		v |= prog.carry ? 0x8000 : 0;
-		prog.carry = v & 0x80;
+		v |= (prog.carry & prog.bcd) ? 0x8000 : 0;
+		prog.carry = (v & 0x80) != 0;
 		v >>= 8;
 		prog.zero = !v;
 		switch (prog.code >> 6) {
@@ -490,8 +490,50 @@ void CMP(CPU& prog, bool& RW) {
 		else {
 			v = prog.A - prog.io;
 		}
-		prog.carry = v & 0x100;
+		prog.carry = (v & 0x100) != 0;
 		prog.zero = !v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void ADDC(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v;
+		if (prog.bcd) {
+			v = toBCD(fromBCD(prog.A) + fromBCD(prog.io) + prog.carry);
+		}
+		else {
+			v = prog.A + prog.io + prog.carry;
+		}
+		prog.carry = (v & 0x100) != 0;
+		prog.zero = !v;
+		prog.A = v;
+		prog.addr = prog.IP;
+		prog.code = OP_NOP;
+	}
+}
+void SUBC(CPU& prog, bool& RW) {
+	if ((prog.index & 0xC) == 0) {
+		if (AddrMode(prog)) {
+			prog.index = 0x3;
+		}
+	}
+	else if (prog.index == 0x4) {
+		int v;
+		if (prog.bcd) {
+			v = toBCD(fromBCD(prog.A) + fromBCD(prog.io) - prog.carry);
+		}
+		else {
+			v = prog.A + prog.io - prog.carry;
+		}
+		prog.carry = (v & 0x100) != 0;
+		prog.zero = !v;
+		prog.A = v;
 		prog.addr = prog.IP;
 		prog.code = OP_NOP;
 	}
@@ -720,7 +762,7 @@ void CPU::interp(bool& RW, bool interrupt) {
 	}
 	else if (code == OP_BRK) {
 		char t;
-		std::cin >> t;
+		//std::cin >> t;
 		index = 255;
 		if (interrupt && interruptEnable) {
 			code = OP_INT;
@@ -766,6 +808,10 @@ void CPU::interp(bool& RW, bool interrupt) {
 		ADD(*this, RW); break;
 	case OP_SUB:
 		SUB(*this, RW); break;
+	case OP_ADDC:
+		ADDC(*this, RW); break;
+	case OP_SUBC:
+		SUBC(*this, RW); break;
 	case OP_AND:
 		AND(*this, RW); break;
 	case OP_OR:

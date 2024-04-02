@@ -8,10 +8,10 @@ typedef unsigned short word;
 #define OP_RET OPCODE::OP_CAL
 #define OP_INT OPCODE::OP_PSH | 0xC0
 #define OP_IRET OPCODE::OP_POP | 0xC0
-#define OP_XTA OPCODE::OP_INC | 0xC0
-#define OP_YTA OPCODE::OP_DEC | 0xC0
-#define OP_ATX OPCODE::OP_SHL | 0xC0
-#define OP_ATY OPCODE::OP_SHR | 0xC0
+#define OP_ATY OPCODE::OP_INC | 0xC0
+#define OP_ATX OPCODE::OP_DEC | 0xC0
+#define OP_YTA OPCODE::OP_SHL | 0xC0
+#define OP_XTA OPCODE::OP_SHR | 0xC0
 #define OP_XTY OPCODE::OP_STX
 #define OP_YTX OPCODE::OP_STY
 enum OPCODE {
@@ -52,7 +52,7 @@ enum OPCODE {
 struct CPU {
 
 	byte index;
-	byte code = OP_JMP | 0x80;
+	byte code = OP_JMP | 0x40;
 	byte buffer;
 	byte A;
 	byte X;
